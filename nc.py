@@ -28,8 +28,8 @@ def usage():
         ' and write to [dest]\n\n'
         'Examples:\n\n'
         'nc.py -t 192.168.0.1 -p 5555 -l -c\n'
-        "nc.py -t 192.168.0.1 -p 5555 -l -u=c:\\target.exe\n"
-        "nc.py -t 192.168.0.1 -p 5555 -l -e=\"cat /etc/passwd\"\n"
+        "nc.py -t 192.168.0.1 -p 5555 -l -u 'c:\\target.exe\n'"
+        "nc.py -t 192.168.0.1 -p 5555 -l -e \"cat /etc/passwd\"\n"
         "echo 'ABCDEFGHI' | ./nc.py -t 192.168.11.12 -p 135\n"
     )
     print(msg)
