@@ -1,5 +1,5 @@
 # BlackHatPython
-Tools and exercises from Black Hat Python book
+Tools and exercises from the book Black Hat Python
 
 ## Chapter 2
 * [Replacing Netcat](nc.py)
